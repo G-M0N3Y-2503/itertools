@@ -119,6 +119,7 @@ pub mod structs {
     pub use crate::pad_tail::PadUsing;
     #[cfg(feature = "use_alloc")]
     pub use crate::peek_nth::PeekNth;
+    pub use crate::peeking_map::PeekingMap;
     pub use crate::peeking_take_while::PeekingTakeWhile;
     #[cfg(feature = "use_alloc")]
     pub use crate::permutations::Permutations;
@@ -209,6 +210,7 @@ mod multipeek_impl;
 mod pad_tail;
 #[cfg(feature = "use_alloc")]
 mod peek_nth;
+mod peeking_map;
 mod peeking_take_while;
 #[cfg(feature = "use_alloc")]
 mod permutations;
@@ -1474,6 +1476,22 @@ pub trait Itertools: Iterator {
         F: FnMut(&Self::Item) -> V,
     {
         unique_impl::unique_by(self, f)
+    }
+
+    /// Return an iterator adaptor that borrows from this iterator and
+    /// maps items while the closure `accept` returns successfully.
+    ///
+    /// This adaptor can only be used on some iterators like `.peekable()`.
+    fn peeking_map<Accept, Map, Output>(
+        &mut self,
+        accept: Accept,
+    ) -> PeekingMap<Self, Accept, Map, Output>
+    where
+        Self: Sized,
+        Map: FnOnce(Self::Item) -> Output,
+        Accept: FnMut(&mut Self::Item) -> core::ops::ControlFlow<Option<Output>, Map>,
+    {
+        peeking_map::PeekingMap::new(self, accept)
     }
 
     /// Return an iterator adaptor that borrows from this iterator and

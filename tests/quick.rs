@@ -913,6 +913,57 @@ quickcheck! {
 }
 
 quickcheck! {
+    fn mimmic_peeking_take_while_peeking_map(a: Vec<u8>, stop: u8) -> bool {
+        use core::ops::ControlFlow;
+
+        let mut take_it = a.iter().peekable();
+        let mut map_none_it = take_it.clone();
+        let take_res = take_it.peeking_take_while(|x| **x != stop);
+        let map_none_res = map_none_it.peeking_map(|x| if **x != stop {
+            ControlFlow::Continue(|x| x)
+        } else {
+            ControlFlow::Break(None)
+        });
+        itertools::equal(take_res, map_none_res)
+    }
+
+    fn consistant_else_non_taking_peeking_map(a: Vec<u8>, max: u8, n_else: u8) -> bool {
+        use core::ops::ControlFlow;
+
+        let mut peeking_it = a.iter().peekable();
+        let mut expected_it = peeking_it.clone();
+        let mut expected = expected_it
+            .peeking_take_while(|x| matches!(x.checked_rem(max), Some(y) if y != 0))
+            .map(|x| x.checked_rem(max).map(|y| x - y).ok_or(*x));
+
+        let mut result = peeking_it.peeking_map(|x| match x.checked_rem(max) {
+            Some(0) | None => ControlFlow::Break(Some(Err(**x))),
+            Some(r) => ControlFlow::Continue(move |x| Ok(x - r))
+        });
+
+        let mut else_count = 0;
+        let mut map_count = 0;
+        loop {
+            if else_count <= n_else {
+                return peeking_it.count() == expected_it.count();
+            }
+            match (result.next(), expected.next()) {
+                (Some(res), Some(expected @ Ok(_))) => {
+                    assert_eq!(res, expected);
+                    map_count += 1;
+                },
+                (Some(Err(res)), None) => {
+                    assert!(matches!(res.checked_rem(max), Some(0) | None));
+                    else_count += 1;
+                },
+                (None, None) if map_count == 0 => {},
+                _ => unreachable!(),
+            }
+        }
+    }
+}
+
+quickcheck! {
     fn size_take_while_ref(a: Vec<u8>, stop: u8) -> bool {
         correct_size_hint(a.iter().take_while_ref(|x| **x != stop))
     }
