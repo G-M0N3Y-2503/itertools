@@ -184,6 +184,13 @@ must_use_tests! {
     unique_by {
         let _ = Panicking.unique_by(|x| *x);
     }
+    peeking_map {
+        use core::ops::ControlFlow;
+        let _ = Panicking.peeking_map(|x| match *x % 10 {
+            0 => ControlFlow::Break(Some(*x)),
+            remainder => ControlFlow::Continue(move |x| x - remainder)
+        });
+    }
     peeking_take_while {
         let _ = Panicking.peekable().peeking_take_while(|x| x % 2 == 0);
     }
